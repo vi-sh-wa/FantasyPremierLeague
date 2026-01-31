@@ -30,9 +30,9 @@ Hello!! This is my first project where I am parallely working on Github. Everybo
 ### Phase 2: From Static Fixture Difficulty Rating (FDR) to Dynamic Modifiers
 
 - [x] **Feature Engineering:** Replace standard 1–5 FDR with weighted heuristic score ($0.7 \times \text{Goals Conceded} + 0.3 \times \text{BPS Conceded}$) to capture both "leaky" and "passive" opponent behaviors.
-- [ ] **Efficiency Normalization:** Implement ICT per 90 metrics to neutralize bias toward high-minute starters and identify high-upside "super-subs."
+- [x] **Efficiency Normalization:** Implement ICT per 90 metrics to neutralize bias toward high-minute starters and identify high-upside "super-subs."
 
-- [ ] **The Interaction Logic:** Calculate the Final Opportunity Score ($Player\_Power \times Opponent\_Multiplier$) to map quality against fixture vulnerability.
+- [x] **The Interaction Logic:** Calculate the Final Opportunity Score ($Player\_Power \times Opponent\_Multiplier$) to map quality against fixture vulnerability.
 
 - [ ] **Script Refactoring:** Transition "Whiteboard" notebook code into modular, generic .py files for AWS Lambda automation.
 
