@@ -91,3 +91,8 @@ I chose to combine Machine Learning with Rule-Based Logic Math because I believe
 
 ## ⚠️ Disclaimer
 **Note:** This roadmap is subject to change based on sudden injuries, unexpected VAR decisions, and managers being sacked in the morning. Use these predictions at your own risk; the creator is not responsible for any broken keyboards or triple-captain disasters.
+
+---
+
+## Data Sources
+This project utilizes historical Fantasy Premier League data curated by [Vaastav Anand](https://github.com/vaastav/Fantasy-Premier-League). Special thanks for maintaining such a comprehensive archive of FPL statistics.
