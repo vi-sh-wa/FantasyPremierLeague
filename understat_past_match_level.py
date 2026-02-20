@@ -9,12 +9,13 @@ client = bigquery.Client()
 DEST_TABLE = "fpl-optima.fpl_bronze.understat_past_match_level"
 ID_MAP_URL = "https://raw.githubusercontent.com/ChrisMusson/FPL-ID-Map/main/Master.csv"
 
+BATCH_SIZE = 50  # Number of players to collect before uploading to BigQuery
 
 def get_already_scraped_ids():
     try:
-        query = f"SELECT DISTINCT CAST(player_id AS STRING) as id FROM `{DEST_TABLE}`" #to avoid repetitions in case of multiple matches per player
+        query = f"SELECT DISTINCT CAST(player_id AS STRING) as id FROM `{DEST_TABLE}`"
         return set(row.id for row in client.query(query))
-    except:
+    except Exception:
         return set()
 
 def main():
@@ -28,26 +29,55 @@ def main():
     print(f"Resuming: {len(scraped_ids)} players already in BigQuery.")
     print(f"To Scrape: {len(to_scrape)} players remaining.")
 
-    with tqdm(to_scrape, desc="Overall Progress", unit="player") as pbar:
-        for p_id in pbar:
-            try:
-                pbar.set_description(f"Scraping Player {p_id}") # Update the status bar with the current player ID
-                
-                with UnderstatClient() as understat:
-                    data = understat.player(player=p_id).get_match_data()
+    batch_dfs = []  # Temporary list to hold DataFrames
+
+    try:
+        with tqdm(to_scrape, desc="Overall Progress", unit="player") as pbar:
+            for i, p_id in enumerate(pbar):
+                try:
+                    pbar.set_description(f"Scraping Player {p_id}")
                     
-                    if data:
-                        df = pd.DataFrame(data)
-                        df['player_id'] = p_id 
+                    with UnderstatClient() as understat:
+                        data = understat.player(player=p_id).get_match_data()
                         
+                        if data:
+                            df = pd.DataFrame(data)
+                            df['player_id'] = p_id 
+                            batch_dfs.append(df)
+                    
+                    # Upload if batch is full OR if it's the very last player in the list
+                    if len(batch_dfs) >= BATCH_SIZE or (i == len(to_scrape) - 1 and batch_dfs):
+                        pbar.write(f" Reached batch limit. Uploading {len(batch_dfs)} players to BigQuery...")
+                        
+                        # Combine all DataFrames in the current batch
+                        final_df = pd.concat(batch_dfs, ignore_index=True)
+                        
+                        # Clean numeric columns to prevent BigQuery schema mismatches
+                        cols_to_fix = ['xG', 'xA', 'npg', 'npxG', 'xGChain', 'xGBuildup','goals', 'assists', 'key_passes', 'shots', 'time']
+                        for col in cols_to_fix:
+                            if col in final_df.columns:
+                                final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
+
+                        # Write the batch to BigQuery
                         job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
-                        client.load_table_from_dataframe(df, DEST_TABLE, job_config=job_config).result()
-                
-                time.sleep(random.uniform(1.2, 2.8))
-                
-            except Exception as e:
-                pbar.write(f"Error on {p_id}: {e}")
-                time.sleep(10)
+                        client.load_table_from_dataframe(final_df, DEST_TABLE, job_config=job_config).result()
+                        
+                        batch_dfs = []  # Clear the list for the next batch
+                        pbar.write(" Upload successful.")
+
+                    # Random sleep to stay under Understat's radar
+                    time.sleep(random.uniform(1.2, 2.8))
+                    
+                except Exception as e:
+                    pbar.write(f" Error on {p_id}: {e}")
+                    # If it's a 403 quota error, you might want to stop the script entirely
+                    if "403" in str(e):
+                        pbar.write(" Quota still exceeded. Try again in a few hours.")
+                        break
+                    time.sleep(10)
+
+    except KeyboardInterrupt:
+        print("\n Manual stop detected. Any un-uploaded data in the current batch was not saved.")
 
 if __name__ == "__main__":
     main()
