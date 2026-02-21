@@ -56,7 +56,7 @@ def main():
                         cols_to_fix = ['xG', 'xA', 'npg', 'npxG', 'xGChain', 'xGBuildup','goals', 'assists', 'key_passes', 'shots', 'time']
                         for col in cols_to_fix:
                             if col in final_df.columns:
-                                final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
+                                final_df[col] = pd.to_numeric(final_df[col], errors='coerce').astype('float64')
 
                         # Write the batch to BigQuery
                         job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
