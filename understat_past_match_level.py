@@ -57,13 +57,19 @@ def main():
                         for col in cols_to_fix:
                             if col in final_df.columns:
                                 final_df[col] = pd.to_numeric(final_df[col], errors='coerce').astype('float64')
+                                final_df[col] = final_df[col].fillna(0.0)
 
                         # Write the batch to BigQuery
-                        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
-                        client.load_table_from_dataframe(final_df, DEST_TABLE, job_config=job_config).result()
-                        
-                        batch_dfs = []  # Clear the list for the next batch
-                        pbar.write(" Upload successful.")
+                        try:
+                            job_config = bigquery.LoadJobConfig(
+                                write_disposition="WRITE_APPEND",
+                                autodetect=True, # Let BQ help decide the types
+                            )
+                            client.load_table_from_dataframe(final_df, DEST_TABLE, job_config=job_config).result()
+                            batch_dfs = [] 
+                            pbar.write("Upload successful.")
+                        except Exception as bq_err:
+                            pbar.write(f"BigQuery rejected this batch: {bq_err}")
 
                     # Random sleep to stay under Understat's radar
                     time.sleep(random.uniform(1.2, 2.8))
