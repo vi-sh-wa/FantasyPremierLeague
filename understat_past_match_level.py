@@ -47,39 +47,39 @@ def main():
                     
                     # Upload if batch is full OR if it's the very last player in the list
                     if len(batch_dfs) >= BATCH_SIZE or (i == len(to_scrape) - 1 and batch_dfs):
-                    pbar.write(f"📦 Reached batch limit. Uploading {len(batch_dfs)} players...")
-                    
-                    final_df = pd.concat(batch_dfs, ignore_index=True)
-
-                    # 1. Aggressive Flattening: Ensure no "Lists" are hiding in the columns
-                    # This converts any [1] into 1 or any weird object into a string/number
-                    for col in final_df.columns:
-                        if final_df[col].apply(lambda x: isinstance(x, list)).any():
-                            pbar.write(f"⚠️ Flattening list-type column: {col}")
-                            final_df[col] = final_df[col].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else 0)
-
-                    # 2. Force Numeric Conversion
-                    cols_to_fix = ['xG', 'xA', 'npg', 'npxG', 'xGChain', 'xGBuildup', 
-                                'goals', 'assists', 'key_passes', 'shots', 'time']
-                    
-                    for col in cols_to_fix:
-                        if col in final_df.columns:
-                            # errors='coerce' turns non-numbers into NaN, fillna(0) makes them 0
-                            final_df[col] = pd.to_numeric(final_df[col], errors='coerce').fillna(0).astype(float)
-
-                    # 3. Last Resort: Force the entire DataFrame to standard types
-                    # This prevents PyArrow from seeing 'object' types
-                    final_df = final_df.copy() 
-
-                    try:
-                        # Use parquet as the intermediary format (it's better than CSV for BQ)
-                        job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
-                        client.load_table_from_dataframe(final_df, DEST_TABLE, job_config=job_config).result()
+                        pbar.write(f"📦 Reached batch limit. Uploading {len(batch_dfs)} players...")
                         
-                        batch_dfs = [] 
-                        pbar.write("✅ Upload successful.")
-                    except Exception as bq_err:
-                        pbar.write(f"❌ BigQuery STILL rejected this batch: {bq_err}")
+                        final_df = pd.concat(batch_dfs, ignore_index=True)
+
+                        # 1. Aggressive Flattening: Ensure no "Lists" are hiding in the columns
+                        # This converts any [1] into 1 or any weird object into a string/number
+                        for col in final_df.columns:
+                            if final_df[col].apply(lambda x: isinstance(x, list)).any():
+                                pbar.write(f"⚠️ Flattening list-type column: {col}")
+                                final_df[col] = final_df[col].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else 0)
+
+                        # 2. Force Numeric Conversion
+                        cols_to_fix = ['xG', 'xA', 'npg', 'npxG', 'xGChain', 'xGBuildup', 
+                                    'goals', 'assists', 'key_passes', 'shots', 'time']
+                        
+                        for col in cols_to_fix:
+                            if col in final_df.columns:
+                                # errors='coerce' turns non-numbers into NaN, fillna(0) makes them 0
+                                final_df[col] = pd.to_numeric(final_df[col], errors='coerce').fillna(0).astype(float)
+
+                        # 3. Last Resort: Force the entire DataFrame to standard types
+                        # This prevents PyArrow from seeing 'object' types
+                        final_df = final_df.copy() 
+
+                        try:
+                            # Use parquet as the intermediary format (it's better than CSV for BQ)
+                            job_config = bigquery.LoadJobConfig(write_disposition="WRITE_APPEND")
+                            client.load_table_from_dataframe(final_df, DEST_TABLE, job_config=job_config).result()
+                            
+                            batch_dfs = [] 
+                            pbar.write("✅ Upload successful.")
+                        except Exception as bq_err:
+                            pbar.write(f"❌ BigQuery STILL rejected this batch: {bq_err}")
 
                     # Random sleep to stay under Understat's radar
                     time.sleep(random.uniform(1.2, 2.8))
